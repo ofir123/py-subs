@@ -7,7 +7,7 @@ from logbook.compat import redirect_logging
 
 import babelfish
 import subliminal
-from subliminal.cli import cache_file, MutexLock
+from subliminal.cli import app_dir, cache_file, MutexLock
 from subliminal.subtitle import get_subtitle_path
 from subliminal.cache import region
 
@@ -182,7 +182,9 @@ def main():
             path = directory
 
     # Configure the subliminal cache.
-    cache_file_path = os.path.abspath(cache_file)
+    if not os.path.exists(app_dir):
+		os.makedirs(app_dir)
+    cache_file_path = os.path.join(app_dir, cache_file)
     region.configure('dogpile.cache.dbm', expiration_time=datetime.timedelta(days=30),
                      arguments={'filename': cache_file_path, 'lock_factory': MutexLock})
     # Determine if the given path is a directory, and continue accordingly.
