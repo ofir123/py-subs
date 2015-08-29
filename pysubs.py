@@ -7,9 +7,9 @@ from logbook.compat import redirect_logging
 
 import babelfish
 import subliminal
-from subliminal.cli import DEFAULT_CACHE_FILE
+from subliminal.cli import cache_file, MutexLock
 from subliminal.subtitle import get_subtitle_path
-from subliminal import cache_region, MutexLock
+from subliminal.cache import region
 
 
 UTORRENT_COMPLETED_DOWNLOADS_PATH = r'd:\downloads'
@@ -75,8 +75,9 @@ def _get_arguments():
     args = parser.parse_args()
     # Make sure the supplied providers are valid.
     if args.providers is not None:
+        available_providers = [p.name for p in subliminal.provider_manager]
         for provider in args.providers:
-            if provider not in subliminal.provider_manager.available_providers:
+            if provider not in available_providers:
                 parser.error('Illegal provider! Please choose providers from the list (pysubs --providers-menu)')
     return args
 
@@ -162,8 +163,8 @@ def main():
     # Print the providers menu (supplied by subliminal), if asked to by the user.
     if args.providers_menu:
         print "Available providers are:"
-        for provider in subliminal.provider_manager.available_providers:
-            print provider
+        for provider in subliminal.provider_manager:
+            print provider.name
         print "Please run the program again with your choice, or without one to use default order."
         return
 
@@ -181,9 +182,9 @@ def main():
             path = directory
 
     # Configure the subliminal cache.
-    cache_file_path = os.path.abspath(os.path.expanduser(DEFAULT_CACHE_FILE))
-    cache_region.configure('dogpile.cache.dbm', expiration_time=datetime.timedelta(days=30),
-                           arguments={'filename': cache_file_path, 'lock_factory': MutexLock})
+    cache_file_path = os.path.abspath(cache_file)
+    region.configure('dogpile.cache.dbm', expiration_time=datetime.timedelta(days=30),
+                     arguments={'filename': cache_file_path, 'lock_factory': MutexLock})
     # Determine if the given path is a directory, and continue accordingly.
     if os.path.isdir(path):
         _initialize_logger(path)
