@@ -1,3 +1,4 @@
+from __future__ import print_function, unicode_literals
 from argparse import ArgumentParser
 import os
 import sys
@@ -104,9 +105,9 @@ def find_file_subtitles(path, args):
         providers_list = None
         if args.providers:
             providers_list = args.providers
-        subtitles_result = subliminal.download_best_subtitles(
+        subtitles_result = list(subliminal.download_best_subtitles(
             {video}, languages=set([babelfish.Language(l) for l in languages_list]),
-            providers=providers_list).values()
+            providers=providers_list).values())
         if len(subtitles_result) == 0:
             logger.info('No subtitles were found. Moving on...')
             return []
@@ -162,10 +163,10 @@ def main():
     args = _get_arguments()
     # Print the providers menu (supplied by subliminal), if asked to by the user.
     if args.providers_menu:
-        print "Available providers are:"
+        print("Available providers are:")
         for provider in subliminal.provider_manager:
-            print provider.name
-        print "Please run the program again with your choice, or without one to use default order."
+            print(provider.name)
+        print("Please run the program again with your choice, or without one to use default order.")
         return
 
     if args.full_path is not None:
@@ -183,7 +184,7 @@ def main():
 
     # Configure the subliminal cache.
     if not os.path.exists(app_dir):
-		os.makedirs(app_dir)
+        os.makedirs(app_dir)
     cache_file_path = os.path.join(app_dir, cache_file)
     region.configure('dogpile.cache.dbm', expiration_time=datetime.timedelta(days=30),
                      arguments={'filename': cache_file_path, 'lock_factory': MutexLock})
