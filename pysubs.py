@@ -14,7 +14,11 @@ from subliminal.cache import region
 
 
 UTORRENT_COMPLETED_DOWNLOADS_PATH = r'd:\downloads'
-LANGUAGES_LIST = ['heb', 'eng']
+# A map between each language and its favorite providers (None for all providers).
+LANGUAGES_MAP = {
+    babelfish.Language('heb'): ['subscenter'],
+    babelfish.Language('eng'): None
+}
 
 # The global logger used by the script.
 logger = None
@@ -98,24 +102,42 @@ def find_file_subtitles(path, args):
     try:
         # Get required video information.
         video = subliminal.scan_video(path, subtitles=True, embedded_subtitles=True)
-        # Get subtitles.
-        languages_list = LANGUAGES_LIST
+        languages_list = list(LANGUAGES_MAP.keys())
+        other_languages = []
+        subtitle_results = []
+        # Get favorite provider subtitles first.
         if args.languages:
-            languages_list = args.languages
-        providers_list = None
-        if args.providers:
-            providers_list = args.providers
-        subtitles_result = list(subliminal.download_best_subtitles(
-            {video}, languages=set([babelfish.Language(l) for l in languages_list]),
-            providers=providers_list).values())
-        if len(subtitles_result) == 0:
+            languages_list = [babelfish.Language(l) for l in args.languages]
+        for language in languages_list:
+            providers_list = LANGUAGES_MAP.get(language, None)
+            # Filter providers the user didn't ask for.
+            if providers_list is not None and args.providers:
+                providers_list = [p for p in providers_list if p in args.providers]
+            if providers_list is None or len(providers_list) == 0:
+                other_languages.append(language)
+            else:
+                current_result = list(subliminal.download_best_subtitles(
+                    {video}, languages={language}, providers=providers_list).values())
+                if len(current_result) > 0:
+                    subtitle_results.extend(current_result[0])
+        # Add global providers after.
+        if len(other_languages) > 0:
+            providers_list = None
+            if args.providers:
+                providers_list = args.providers
+            current_result = list(subliminal.download_best_subtitles(
+                {video}, languages=set(other_languages),
+                providers=providers_list).values())
+            if len(current_result) > 0:
+                subtitle_results.extend(current_result[0])
+        # Handle results.
+        if len(subtitle_results) == 0:
             logger.info('No subtitles were found. Moving on...')
             return []
-        subtitles_result = subtitles_result[0]
-        logger.info('Found %d subtitles. Saving files...' % len(subtitles_result))
+        logger.info('Found %d subtitles. Saving files...' % len(subtitle_results))
         # Save subtitles alongside the video file.
         results_list = list()
-        for subtitles in subtitles_result:
+        for subtitles in subtitle_results:
             saved_languages = set()
             if subtitles.content is None:
                 logger.debug('Skipping subtitle %s: no content' % str(subtitles))
