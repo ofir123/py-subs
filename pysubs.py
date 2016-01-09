@@ -13,7 +13,7 @@ from subliminal.subtitle import get_subtitle_path
 from subliminal.cache import region
 
 
-UTORRENT_COMPLETED_DOWNLOADS_PATH = r'd:\downloads'
+UTORRENT_COMPLETED_DOWNLOADS_PATH = r'D:\Downloads'
 # A map between each language and its favorite providers (None for all providers).
 LANGUAGES_MAP = {
     babelfish.Language('heb'): ['subscenter'],
@@ -21,32 +21,24 @@ LANGUAGES_MAP = {
 }
 
 # The global logger used by the script.
-logger = None
+logger = logbook.Logger('py-subs')
 
 
-def _initialize_logger(log_file_directory_path):
+def _get_log_handlers(log_file_directory_path):
     """
-    Initializes a single logger lazily and returns it..
+    Returns a list of the nested log handlers setup.
 
     :param log_file_directory_path: The path of the directory to save to log file in.
-    :return: A logbook Logger.
+    :return: The handlers list.
     """
-    global logger
     # Create log directory path, if it doesn't exist.
     if not os.path.exists(log_file_directory_path):
         os.makedirs(log_file_directory_path)
     log_file_path = os.path.join(log_file_directory_path, 'py-subs.log')
-    # If for some reason we initialize the logger a second time, we want to report it in the previous log.
-    if logger is not None:
-        logger.error('Logger was initialized again unexpectedly.. new path is: %s' % log_file_path)
     # Create the handlers chain.
-    logbook.NullHandler().push_application()
-    logbook.FileHandler(log_file_path, level=logbook.INFO, bubble=True).push_application()
-    logbook.StreamHandler(sys.stdout, level=logbook.INFO, bubble=True).push_application()
-    logger = logbook.Logger('py-subs')
-    # Redirect all logs to logbook.
-    redirect_logging()
-    return logger
+    return [logbook.NullHandler(),
+            logbook.FileHandler(log_file_path, level=logbook.DEBUG, bubble=True),
+            logbook.StreamHandler(sys.stdout, level=logbook.INFO, bubble=True)]
 
 
 def _get_arguments():
@@ -190,7 +182,6 @@ def main():
             print(provider.name)
         print("Please run the program again with your choice, or without one to use default order.")
         return
-
     if args.full_path is not None:
         path = args.full_path
     else:
@@ -203,7 +194,6 @@ def main():
             # When downloading a directory, uTorrent will just pick a random file from it
             # and will give it as the downloaded file.
             path = directory
-
     # Configure the subliminal cache.
     if not os.path.exists(app_dir):
         os.makedirs(app_dir)
@@ -211,14 +201,16 @@ def main():
     region.configure('dogpile.cache.dbm', expiration_time=datetime.timedelta(days=30),
                      arguments={'filename': cache_file_path, 'lock_factory': MutexLock})
     # Determine if the given path is a directory, and continue accordingly.
-    if os.path.isdir(path):
-        _initialize_logger(path)
-        results_list = find_directory_subtitles(path, args)
-    else:
-        _initialize_logger(os.path.dirname(path))
-        results_list = find_file_subtitles(path, args)
-    logger.info('py-subs finished! Found %d subtitles' % len(results_list))
-    logger.info('Subtitles found: %s' % ', '.join(results_list))
+    is_dir = os.path.isdir(path)
+    log_path = path if is_dir else os.path.dirname(path)
+    with logbook.NestedSetup(_get_log_handlers(log_path)).applicationbound():
+        redirect_logging()
+        if os.path.isdir(path):
+            results_list = find_directory_subtitles(path, args)
+        else:
+            results_list = find_file_subtitles(path, args)
+        logger.info('py-subs finished! Found %d subtitles' % len(results_list))
+        logger.info('Subtitles found: %s' % ', '.join(results_list))
 
 
 if __name__ == '__main__':
