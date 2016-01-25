@@ -183,7 +183,7 @@ def main():
         print("Please run the program again with your choice, or without one to use default order.")
         return
     if args.full_path is not None:
-        path = args.full_path
+        path = os.path.abspath(args.full_path)
     else:
         # uTorrent gives us its completed downloads directory in case we download a single file.
         directory = args.utorrent_path[0]
