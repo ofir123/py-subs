@@ -10,6 +10,8 @@ The script uses babelfish to specify subtitle language to subliminal.
 Downloaded subs are saved with the video file's name and the language 2-letter extension.
 For example: 'Inception.mkv' english srt subs will be saved as 'Inception.en.srt'.
 
+Both Python 2 and 3 are supported!
+
 Usage
 ====================
 Edit your preferred languages inside the script (under the LANGUAGE_LIST const).
@@ -24,17 +26,23 @@ The script can be used from the command line:
 But works best with uTorrent:
 
     Options -> Advanced -> Run Program
-    When download is finished, run (Change paths accordingly): 
-	'C:\Python27\pythonw.exe D:\Projects\py-subs\pysubs.py -u "%D" "%F"'
+    When download is finished, run (Change paths and Python version accordingly): 
+	'C:\Python35\pythonw.exe D:\Projects\py-subs\pysubs.py -u "%D" "%F"'
 	
 	Important: Be sure to use different folders for new downloads and completed downloads, or else py-subs won't work.
 	
 For full usage instructions:
     
     $ pysubs --help
+
+Extras
+====================
+If non-english subtitles are an issue (because of TVs or streamers), strings reversing is also supported.  
+Just add the -b (backwards) flag and all non-english strings in the subtitles file will be reversed.
 	
 Dependencies
 ====================
-subliminal
-babelfish
-logbook
+* subliminal
+* babelfish
+* pysrt
+* logbook

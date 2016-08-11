@@ -1,16 +1,20 @@
 from __future__ import print_function, unicode_literals
+
 from argparse import ArgumentParser
+import datetime
 import os
 import sys
-import datetime
+import re
+
 import logbook
 from logbook.compat import redirect_logging
+import pysrt
 
 import babelfish
 import subliminal
-from subliminal.cli import app_dir, cache_file, MutexLock
-from subliminal.subtitle import get_subtitle_path
 from subliminal.cache import region
+from subliminal.cli import dirs, cache_file, MutexLock
+from subliminal.subtitle import get_subtitle_path
 
 
 UTORRENT_COMPLETED_DOWNLOADS_PATH = r'D:\Downloads'
@@ -19,6 +23,7 @@ LANGUAGES_MAP = {
     babelfish.Language('heb'): ['subscenter'],
     babelfish.Language('eng'): None
 }
+NON_ENGLISH_PATTERN = re.compile(r'[^a-zA-Z0-9_\W]+')
 
 # The global logger used by the script.
 logger = logbook.Logger('py-subs')
@@ -51,6 +56,7 @@ def _get_arguments():
     log_path - If supplied, the log file path will be changed to it (instead of the video file's path).
     languages - If supplied, the script will find subtitles for these languages only. Default list is used otherwise.
     providers - If supplied, the script will use the providers from the list (in that given order) only.
+    backwards - If True, non-english strings will be saved backwards, in order to support problematic TVs.
     """
     parser = ArgumentParser(description='Search for subtitles automatically')
     required_group = parser.add_mutually_exclusive_group(required=True)
@@ -68,6 +74,8 @@ def _get_arguments():
                         help='A list of languages (separated by space)')
     parser.add_argument('-r', '--provider', dest='providers', nargs='*',
                         help='A priority list of subtitle providers (separated by space)')
+    parser.add_argument('-b', '--backwards', action='store_true', dest='is_backwards', default=False,
+                        help='Reverse all non-english strings and show them backwards')
 
     args = parser.parse_args()
     # Make sure the supplied providers are valid.
@@ -77,6 +85,21 @@ def _get_arguments():
             if provider not in available_providers:
                 parser.error('Illegal provider! Please choose providers from the list (pysubs --providers-menu)')
     return args
+
+
+def reverse_strings(subtitles_path, encoding):
+    """
+    Reverses all non-english strings in the subtitles file.
+
+    :param subtitles_path: The subtitles file path.
+    :param encoding: The guessed subtitles encoding.
+    """
+    logger.info('Reversing non-english strings...')
+    subtitles = pysrt.open(subtitles_path, encoding=encoding)
+    for line in subtitles:
+        # Reverse only matching parts of each line.
+        line.text = NON_ENGLISH_PATTERN.sub(lambda x: x.group(0)[::-1], line.text)
+    subtitles.save(subtitles_path, encoding=encoding)
 
 
 def find_file_subtitles(path, args):
@@ -89,11 +112,11 @@ def find_file_subtitles(path, args):
     """
     if not os.path.isfile(path):
         raise IOError('find_file_subtitles was called with an invalid path!')
-    logger.info('py-subs started! Searching subtitles for file: %s' % path)
-    # Call subliminal and get the right subtitles.
+    logger.info('py-subs started! Searching subtitles for file: {}'.format(path))
+    # Call Subliminal and get the right subtitles.
     try:
         # Get required video information.
-        video = subliminal.scan_video(path, subtitles=True, embedded_subtitles=True)
+        video = subliminal.scan_video(path)
         languages_list = list(LANGUAGES_MAP.keys())
         other_languages = []
         subtitle_results = []
@@ -118,33 +141,37 @@ def find_file_subtitles(path, args):
             if args.providers:
                 providers_list = args.providers
             current_result = list(subliminal.download_best_subtitles(
-                {video}, languages=set(other_languages),
-                providers=providers_list).values())
+                {video}, languages=set(other_languages), providers=providers_list).values())
             if len(current_result) > 0:
                 subtitle_results.extend(current_result[0])
         # Handle results.
         if len(subtitle_results) == 0:
             logger.info('No subtitles were found. Moving on...')
             return []
-        logger.info('Found %d subtitles. Saving files...' % len(subtitle_results))
+        logger.info('Found {} subtitles. Saving files...'.format(len(subtitle_results)))
         # Save subtitles alongside the video file.
         results_list = list()
-        for subtitles in subtitle_results:
-            saved_languages = set()
-            if subtitles.content is None:
-                logger.debug('Skipping subtitle %s: no content' % str(subtitles))
-                continue
-            if subtitles.language in saved_languages:
-                logger.debug('Skipping subtitle %s: language already saved' % str(subtitles))
-                continue
-            subtitles_path = get_subtitle_path(video.name, subtitles.language)
-            logger.info('Saving %s to: %s' % (str(subtitles), subtitles_path))
-            open(subtitles_path, 'wb').write(subtitles.content)
-            saved_languages.add(subtitles.language)
-            results_list.append(subtitles_path)
+        if __name__ == '__main__':
+            if __name__ == '__main__':
+                for subtitles in subtitle_results:
+                    saved_languages = set()
+                    if subtitles.content is None:
+                        logger.debug('Skipping subtitle {}: no content'.format(subtitles))
+                        continue
+                    if subtitles.language in saved_languages:
+                        logger.debug('Skipping subtitle {}: language already saved'.format(subtitles))
+                        continue
+                    subtitles_path = get_subtitle_path(video.name, subtitles.language)
+                    logger.info('Saving {} to: {}'.format(subtitles, subtitles_path))
+                    open(subtitles_path, 'wb').write(subtitles.content)
+                    saved_languages.add(subtitles.language)
+                    results_list.append(subtitles_path)
+                    # Reverse non-english strings if needed.
+                    if args.is_backwards:
+                        reverse_strings(subtitles_path, subtitles.guess_encoding())
         return results_list
     except ValueError:
-        # subliminal raises a ValueError if the given file is not a video file.
+        # Subliminal raises a ValueError if the given file is not a video file.
         logger.info('Not a video file. Moving on...')
         return []
 
@@ -159,7 +186,7 @@ def find_directory_subtitles(path, args):
     """
     if not os.path.isdir(path):
         raise IOError('find_directory_subtitles was called with an invalid path!')
-    logger.info('py-subs started! Searching subtitles for directory: %s' % path)
+    logger.info('py-subs started! Searching subtitles for directory: {}'.format(path))
     results_list = list()
     for directory_name, _, files in os.walk(path):
         for file_name in files:
@@ -175,7 +202,7 @@ def main():
     """
     # Get the arguments from the user.
     args = _get_arguments()
-    # Print the providers menu (supplied by subliminal), if asked to by the user.
+    # Print the providers menu (supplied by Subliminal), if asked to by the user.
     if args.providers_menu:
         print("Available providers are:")
         for provider in subliminal.provider_manager:
@@ -195,9 +222,10 @@ def main():
             # and will give it as the downloaded file.
             path = directory
     # Configure the subliminal cache.
-    if not os.path.exists(app_dir):
-        os.makedirs(app_dir)
-    cache_file_path = os.path.join(app_dir, cache_file)
+    cache_dir = dirs.user_cache_dir
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    cache_file_path = os.path.join(cache_dir, cache_file)
     region.configure('dogpile.cache.dbm', expiration_time=datetime.timedelta(days=30),
                      arguments={'filename': cache_file_path, 'lock_factory': MutexLock})
     # Determine if the given path is a directory, and continue accordingly.
@@ -209,8 +237,8 @@ def main():
             results_list = find_directory_subtitles(path, args)
         else:
             results_list = find_file_subtitles(path, args)
-        logger.info('py-subs finished! Found %d subtitles' % len(results_list))
-        logger.info('Subtitles found: %s' % ', '.join(results_list))
+        logger.info('py-subs finished! Found {} subtitles'.format(len(results_list)))
+        logger.info('Subtitles found: {}'.format(', '.join(results_list)))
 
 
 if __name__ == '__main__':
