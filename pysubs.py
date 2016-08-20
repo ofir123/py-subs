@@ -242,4 +242,8 @@ def main():
 
 
 if __name__ == '__main__':
+    # Handle pythonw stdout and stderr block.
+    if sys.executable.endswith("pythonw.exe"):
+        sys.stdout = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w")
     main()
