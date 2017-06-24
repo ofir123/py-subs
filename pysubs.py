@@ -174,6 +174,10 @@ def find_file_subtitles(path, args):
         # Subliminal raises a ValueError if the given file is not a video file.
         logger.info('Not a video file. Moving on...')
         return []
+    except Exception:
+        # Subliminal crashes randomly sometimes.
+        logger.exception('Error while searching for subtitles. Moving on...')
+        return []
 
 
 def find_directory_subtitles(path, args):
