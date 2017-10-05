@@ -20,7 +20,7 @@ from subliminal.subtitle import get_subtitle_path
 UTORRENT_COMPLETED_DOWNLOADS_PATH = r'D:\Downloads'
 # A map between each language and its favorite providers (None for all providers).
 LANGUAGES_MAP = {
-    babelfish.Language('heb'): ['wizdom', 'thewiz', 'subscenter'],
+    babelfish.Language('heb'): ['wizdom', 'subscenter'],
     babelfish.Language('eng'): None
 }
 NON_ENGLISH_PATTERN = re.compile(r'[^a-zA-Z0-9_\W]+')
