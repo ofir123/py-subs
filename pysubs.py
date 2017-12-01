@@ -20,10 +20,17 @@ from subliminal.subtitle import get_subtitle_path
 UTORRENT_COMPLETED_DOWNLOADS_PATH = r'D:\Downloads'
 # A map between each language and its favorite providers (None for all providers).
 LANGUAGES_MAP = {
-    babelfish.Language('heb'): ['wizdom', 'subscenter'],
+    babelfish.Language('heb'): ['cinemast', 'wizdom'],
     babelfish.Language('eng'): None
 }
 NON_ENGLISH_PATTERN = re.compile(r'[^a-zA-Z0-9_\W]+')
+
+PROVIDER_CONFIGS = {
+    'cinemast': {
+        'username': 'subliminal@gmail.com',
+        'password': 'subliminal'
+    }
+}
 
 # The global logger used by the script.
 logger = logbook.Logger('py-subs')
@@ -132,7 +139,8 @@ def find_file_subtitles(path, args):
                 other_languages.append(language)
             else:
                 current_result = list(subliminal.download_best_subtitles(
-                    {video}, languages={language}, providers=providers_list).values())
+                    {video}, languages={language}, providers=providers_list,
+                    provider_configs=PROVIDER_CONFIGS).values())
                 if len(current_result) > 0:
                     subtitle_results.extend(current_result[0])
         # Add global providers after.
@@ -141,7 +149,8 @@ def find_file_subtitles(path, args):
             if args.providers:
                 providers_list = args.providers
             current_result = list(subliminal.download_best_subtitles(
-                {video}, languages=set(other_languages), providers=providers_list).values())
+                {video}, languages=set(other_languages), providers=providers_list,
+                provider_configs=PROVIDER_CONFIGS).values())
             if len(current_result) > 0:
                 subtitle_results.extend(current_result[0])
         # Handle results.
