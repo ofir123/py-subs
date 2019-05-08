@@ -13,7 +13,6 @@ import pysrt
 import babelfish
 import subliminal
 from subliminal.cache import region
-from subliminal.cli import dirs, cache_file, MutexLock
 from subliminal.subtitle import get_subtitle_path
 
 
@@ -235,12 +234,7 @@ def main():
             # and will give it as the downloaded file.
             path = directory
     # Configure the subliminal cache.
-    cache_dir = dirs.user_cache_dir
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-    cache_file_path = os.path.join(cache_dir, cache_file)
-    region.configure('dogpile.cache.dbm', expiration_time=datetime.timedelta(days=30),
-                     arguments={'filename': cache_file_path, 'lock_factory': MutexLock})
+    region.configure('dogpile.cache.memory', expiration_time=datetime.timedelta(days=7))
     # Determine if the given path is a directory, and continue accordingly.
     is_dir = os.path.isdir(path)
     log_path = path if is_dir else os.path.dirname(path)
